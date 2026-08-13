@@ -1,32 +1,50 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
-  workflow_dispatch:
+  workflow_dispatch: # 仅保留手动触发
 
 jobs:
   build-module:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # 设置最大运行时间 120 分钟，防止意外卡死消耗免费额度
+    timeout-minutes: 120 
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
- 
+
       - name: Setup tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y erofs-utils erofsfuse wget unzip xz-utils
-          wget https://github.com/ssut/payload-dumper-go/releases/download/1.3.0/payload-dumper-go_1.3.0_linux_amd64.tar.gz
-          tar -xvf payload-dumper-go_1.3.0_linux_amd64.tar.gz
+          # 安装多线程下载工具 aria2 以及解包所需的工具
+          sudo apt-get install -y erofs-utils erofsfuse unzip xz-utils aria2
+          
+          # 下载 payload-dumper-go
+          wget -q https://github.com/ssut/payload-dumper-go/releases/download/1.3.0/payload-dumper-go_1.3.0_linux_amd64.tar.gz
+          tar -xzf payload-dumper-go_1.3.0_linux_amd64.tar.gz
           chmod +x payload-dumper-go
+          rm payload-dumper-go_1.3.0_linux_amd64.tar.gz
 
       - name: Download HyperOS
         run: |
-          wget "https://ultimateota.d.miui.com/OS2.0.216.0.VOLCNXM/onyx-ota_full-OS2.0.216.0.VOLCNXM-user-15.0-6e1ac7510e.zip?t=1786603018&s=2afbca124c8766c1370bd0cf3af07ca4" -O rom.zip
+          # 使用你提供的完美直链
+          ROM_URL="https://bigota.d.miui.com/OS2.0.216.0.VOLCNXM/onyx-ota_full-OS2.0.216.0.VOLCNXM-user-15.0-6e1ac7510e.zip"
+          
+          echo "开始多线程下载 ROM..."
+          # 使用 aria2c 16线程并发下载，速度极快，带超时和重试机制
+          aria2c -x 16 -s 16 -k 1M -j 1 -m 5 --timeout=60 -o rom.zip "$ROM_URL"
+          
+          # 校验文件大小 (卡刷包大约 8.7GB，这里设置如果小于 1GB 就报错退出)
+          FILE_SIZE=$(stat -c%s "rom.zip")
+          if [ "$FILE_SIZE" -lt 1000000000 ]; then
+            echo "::error::下载失败或链接已失效！文件大小仅为 $FILE_SIZE bytes。"
+            exit 1
+          fi
+          echo "下载完成，文件大小: $FILE_SIZE bytes。"
+          
+          # 仅解压 payload.bin
           unzip rom.zip payload.bin
           rm rom.zip
 
@@ -35,6 +53,7 @@ jobs:
           ./payload-dumper-go -o ./ -p product ./payload.bin
           rm payload.bin
           mkdir product
+          # 挂载/解包 product 镜像
           fsck.erofs product.img --extract=product
           df -h
           free -h
@@ -45,7 +64,7 @@ jobs:
           cp -a ./product/app/MITSMClient ./module/system/app/MITSMClient
           cp -a ./product/app/UPTsmService ./module/system/app/UPTsmService
           cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
-          rm ./module/system/app/.gitkeep
+          rm -f ./module/system/app/.gitkeep
 
       - name: Package module
         run: |
