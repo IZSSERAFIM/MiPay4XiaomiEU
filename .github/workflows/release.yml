@@ -52,10 +52,13 @@ jobs:
 
       - name: Assemble module
         run: |
+          # 仅提取小米支付及相关 NFC 服务组件
           cp -a ./product/app/MINextpay ./module/system/app/MINextpay
           cp -a ./product/app/MITSMClient ./module/system/app/MITSMClient
           cp -a ./product/app/UPTsmService ./module/system/app/UPTsmService
-          cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
+          
+          # 已移除: cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
+          
           rm -f ./module/system/app/.gitkeep
 
       - name: Package module
@@ -64,13 +67,9 @@ jobs:
           zip -r ../MiPay4XiaomiEU.zip *
 
       - name: Release
-        # 修复 1: 升级到 v2 版本，消除 Node 20 废弃警告
         uses: softprops/action-gh-release@v2
         with:
-          # 修复 2: 动态生成 Tag 名称，避免 "requires a tag" 报错
-          # 例如: 第一次运行生成 v-OS2.0.216.0-1，第二次生成 v-OS2.0.216.0-2
           tag_name: v-OS2.0.216.0-${{ github.run_number }}
           name: MiPay Module OS2.0.216.0 (Build ${{ github.run_number }})
           files: MiPay4XiaomiEU.zip
-          # 自动生成更新日志 (可选)
           generate_release_notes: true 
