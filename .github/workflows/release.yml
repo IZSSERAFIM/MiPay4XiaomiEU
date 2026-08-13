@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # 设置最大运行时间 120 分钟，防止意外卡死消耗免费额度
-    timeout-minutes: 120 
+    # 新加坡节点速度极快，设置 60 分钟超时绝对足够，防止意外卡死
+    timeout-minutes: 60 
 
     steps:
       - name: Checkout
@@ -21,7 +21,7 @@ jobs:
           # 安装多线程下载工具 aria2 以及解包所需的工具
           sudo apt-get install -y erofs-utils erofsfuse unzip xz-utils aria2
           
-          # 下载 payload-dumper-go
+          # 下载并配置 payload-dumper-go
           wget -q https://github.com/ssut/payload-dumper-go/releases/download/1.3.0/payload-dumper-go_1.3.0_linux_amd64.tar.gz
           tar -xzf payload-dumper-go_1.3.0_linux_amd64.tar.gz
           chmod +x payload-dumper-go
@@ -29,41 +29,51 @@ jobs:
 
       - name: Download HyperOS
         run: |
-          # 使用你提供的完美直链
-          ROM_URL="https://bigota.d.miui.com/OS2.0.216.0.VOLCNXM/onyx-ota_full-OS2.0.216.0.VOLCNXM-user-15.0-6e1ac7510e.zip"
+          # 使用你提供的新加坡 OSS 直链
+          ROM_URL="https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS2.0.216.0.VOLCNXM/onyx-ota_full-OS2.0.216.0.VOLCNXM-user-15.0-6e1ac7510e.zip"
           
-          echo "开始多线程下载 ROM..."
-          # 使用 aria2c 16线程并发下载，速度极快，带超时和重试机制
-          aria2c -x 16 -s 16 -k 1M -j 1 -m 5 --timeout=60 -o rom.zip "$ROM_URL"
+          echo "开始多线程高速下载 ROM..."
+          # aria2c 多线程配置解析：
+          # -x 16 -s 16: 开启 16 个并发连接分段下载，最大化利用 OSS 带宽
+          # -k 1M: 分块大小为 1MB
+          # -m 5: 遇到网络错误最多重试 5 次
+          # --timeout=60: 60秒无响应则判定为超时
+          aria2c -x 16 -s 16 -k 1M -j 1 -m 5 --timeout=60 --show-console-readout=true --summary-interval=10 -o rom.zip "$ROM_URL"
           
-          # 校验文件大小 (卡刷包大约 8.7GB，这里设置如果小于 1GB 就报错退出)
+          # 下载完成后进行文件大小校验 (7.4GB 约等于 7.4 * 1024 * 1024 * 1024 bytes)
+          # 如果文件小于 1GB，说明链接可能失效或下载出错
           FILE_SIZE=$(stat -c%s "rom.zip")
           if [ "$FILE_SIZE" -lt 1000000000 ]; then
             echo "::error::下载失败或链接已失效！文件大小仅为 $FILE_SIZE bytes。"
             exit 1
           fi
-          echo "下载完成，文件大小: $FILE_SIZE bytes。"
+          echo "✅ 下载完成，文件大小: $FILE_SIZE bytes。"
           
-          # 仅解压 payload.bin
+          # 仅解压 payload.bin，删除无用的 zip 文件释放空间
           unzip rom.zip payload.bin
           rm rom.zip
 
       - name: Unpack HyperOS
         run: |
+          # 从 payload.bin 中提取 product 分区
           ./payload-dumper-go -o ./ -p product ./payload.bin
           rm payload.bin
           mkdir product
-          # 挂载/解包 product 镜像
+          
+          # 解包 EROFS 镜像到 product 文件夹
           fsck.erofs product.img --extract=product
           df -h
           free -h
 
       - name: Assemble module
         run: |
+          # 将提取到的系统应用复制到模块目录中
           cp -a ./product/app/MINextpay ./module/system/app/MINextpay
           cp -a ./product/app/MITSMClient ./module/system/app/MITSMClient
           cp -a ./product/app/UPTsmService ./module/system/app/UPTsmService
           cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
+          
+          # 清理占位文件
           rm -f ./module/system/app/.gitkeep
 
       - name: Package module
