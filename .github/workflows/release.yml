@@ -25,9 +25,9 @@ jobs:
 
       - name: Download HyperOS
         run: |
-          wget https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS3.0.5.0.WNCCNXM/houji-ota_full-OS3.0.5.0.WNCCNXM-user-16.0-306ce971bf.zip
-          unzip houji-ota_full-OS3.0.5.0.WNCCNXM-user-16.0-306ce971bf.zip payload.bin
-          rm houji-ota_full-OS3.0.5.0.WNCCNXM-user-16.0-306ce971bf.zip
+          wget "https://ultimateota.d.miui.com/OS2.0.216.0.VOLCNXM/onyx-ota_full-OS2.0.216.0.VOLCNXM-user-15.0-6e1ac7510e.zip?t=1786603018&s=2afbca124c8766c1370bd0cf3af07ca4" -O rom.zip
+          unzip rom.zip payload.bin
+          rm rom.zip
 
       - name: Unpack HyperOS
         run: |
