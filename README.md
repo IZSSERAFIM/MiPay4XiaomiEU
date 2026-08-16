@@ -4,8 +4,6 @@
 
 也就是 门卡 交通卡 车钥匙
 
-注意，本应用还会恢复国行应用商店（用于更新银联组件和安装 "钱包" 应用），如果不要的话可处以直接删除 module/system/app 中的 MIUISuperMarket
-
 二进制文件提取于小米完整更新包
 
 ## 测试环境
@@ -48,3 +46,4 @@ echo "exit_code = $?" >> "$LOG_DIR/tsm_new.log"
 
 ## 致谢
 - [ReiAccept/MiPay4XiaomiEU](https://github.com/ReiAccept/MiPay4XiaomiEU) — 本项目 fork 自该仓库
+- 酷安 @NERV2233 — 双击电源键唤起小米智能卡的 service.sh 脚本
