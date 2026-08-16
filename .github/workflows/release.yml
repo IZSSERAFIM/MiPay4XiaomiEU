@@ -53,9 +53,9 @@ jobs:
       - name: Assemble module
         run: |
           # 仅提取小米支付及相关 NFC 服务组件
-          cp -a ./product/app/MINextpay ./module/system/app/MINextpay
-          cp -a ./product/app/MITSMClient ./module/system/app/MITSMClient
-          cp -a ./product/app/UPTsmService ./module/system/app/UPTsmService
+          cp -a ./product/app/MINextpay ./module/system/priv-app/MINextpay
+          cp -a ./product/app/MITSMClient ./module/system/priv-app/MITSMClient
+          cp -a ./product/app/UPTsmService ./module/system/priv-app/UPTsmService
           
           # 已移除: cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
           
