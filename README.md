@@ -9,7 +9,10 @@
 二进制文件提取于小米完整更新包
 
 ## 测试环境
- - 设备：小米14
- - 系统版本: OS3.0.5.0.WNCCNXM (xiaomi.eu)
+ - 设备：Redmi Turbo 4 Pro (onyx)
+ - 系统版本: OS2.0.216.0.VOLCNXM (xiaomi.eu)
  - KernelSU版本: 32179
- - KernelSU元模块: OverlayFS MetaModule
+ - 挂载元模块: [magic_mount_rs](https://github.com/KernelSU-Modules-Repo/magic_mount_rs)
+
+## 致谢
+- [HyperOS3EULocalization](https://github.com/LSHFGJ/HyperOS3EULocalization) — 参考其路径、package_cache 清理与挂载元模块方案
