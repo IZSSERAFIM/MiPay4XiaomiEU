@@ -4,6 +4,10 @@
 
 也就是 门卡 交通卡 车钥匙
 
+每次 Release 会发布两个版本:
+- **MiPay4XiaomiEU-lite.zip** — 仅含 NFC 门卡/交通卡组件(MINextpay / MITSMClient / UPTsmService)
+- **MiPay4XiaomiEU-full.zip** — 在 lite 基础上额外包含国行应用商店 MIUISuperMarket(用于更新银联组件和安装"钱包"应用),不需要可直接删除 `module/system/app/MIUISuperMarket` 或使用 lite 版本
+
 二进制文件提取于小米完整更新包
 
 ## 测试环境

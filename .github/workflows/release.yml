@@ -1,14 +1,19 @@
 name: Release
 
 on:
-  workflow_dispatch: # 仅保留手动触发
+  workflow_dispatch:
+    inputs:
+      include_appstore:
+        description: "构建带应用商店的版本 (同时也会构建不带应用商店的版本)"
+        type: boolean
+        default: true
 
 jobs:
   build-module:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    timeout-minutes: 60 
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -18,7 +23,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y erofs-utils erofsfuse unzip xz-utils aria2
-          
+
           wget -q https://github.com/ssut/payload-dumper-go/releases/download/1.3.0/payload-dumper-go_1.3.0_linux_amd64.tar.gz
           tar -xzf payload-dumper-go_1.3.0_linux_amd64.tar.gz
           chmod +x payload-dumper-go
@@ -27,17 +32,17 @@ jobs:
       - name: Download HyperOS
         run: |
           ROM_URL="https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS2.0.216.0.VOLCNXM/onyx-ota_full-OS2.0.216.0.VOLCNXM-user-15.0-6e1ac7510e.zip"
-          
+
           echo "开始多线程高速下载 ROM..."
           aria2c -x 16 -s 16 -k 1M -j 1 -m 5 --timeout=60 --show-console-readout=true --summary-interval=10 -o rom.zip "$ROM_URL"
-          
+
           FILE_SIZE=$(stat -c%s "rom.zip")
           if [ "$FILE_SIZE" -lt 1000000000 ]; then
             echo "::error::下载失败或链接已失效！文件大小仅为 $FILE_SIZE bytes。"
             exit 1
           fi
           echo "✅ 下载完成，文件大小: $FILE_SIZE bytes。"
-          
+
           unzip rom.zip payload.bin
           rm rom.zip
 
@@ -50,26 +55,84 @@ jobs:
           df -h
           free -h
 
-      - name: Assemble module
+      - name: Build lite variant (no app store)
         run: |
-          # 仅提取小米支付及相关 NFC 服务组件
-          cp -a ./product/app/MINextpay ./module/system/app/MINextpay
-          cp -a ./product/app/MITSMClient ./module/system/app/MITSMClient
+          # 仅提取门卡/交通卡链路所需的 NFC 服务组件
+          cp -a ./product/app/MINextpay    ./module/system/app/MINextpay
+          cp -a ./product/app/MITSMClient  ./module/system/app/MITSMClient
           cp -a ./product/app/UPTsmService ./module/system/app/UPTsmService
-          
-          # 已移除: cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
-          
+
           rm -f ./module/system/app/.gitkeep
 
-      - name: Package module
-        run: |
+          # 写入 lite 版本的 module.prop
+          cat > ./module/module.prop <<EOF
+          id=MiPay4XiaomiEU
+          name=MiPay4XiaomiEU (Lite)
+          version=2.3.0-lite
+          versionCode=20300
+          author=ReiAccept, IZSSERAFIM
+          description=XiaomiEU固件添加国行NFC (不含应用商店)
+          EOF
+
           cd module/
-          zip -r ../MiPay4XiaomiEU.zip *
+          zip -r ../MiPay4XiaomiEU-lite.zip *
+
+      - name: Build full variant (with app store)
+        if: ${{ inputs.include_appstore }}
+        run: |
+          # 重置 module 目录
+          rm -rf ./module/system/app/*
+          touch ./module/system/app/.gitkeep
+
+          # 提取 NFC 服务组件 + 国行应用商店
+          cp -a ./product/app/MINextpay       ./module/system/app/MINextpay
+          cp -a ./product/app/MITSMClient     ./module/system/app/MITSMClient
+          cp -a ./product/app/UPTsmService    ./module/system/app/UPTsmService
+          cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
+
+          rm -f ./module/system/app/.gitkeep
+
+          # 写入 full 版本的 module.prop
+          cat > ./module/module.prop <<EOF
+          id=MiPay4XiaomiEU
+          name=MiPay4XiaomiEU (Full)
+          version=2.3.0-full
+          versionCode=20301
+          author=ReiAccept, IZSSERAFIM
+          description=XiaomiEU固件添加国行NFC + 国行应用商店
+          EOF
+
+          cd module/
+          zip -r ../MiPay4XiaomiEU-full.zip *
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          mv MiPay4XiaomiEU-lite.zip release-assets/
+          if [ -f MiPay4XiaomiEU-full.zip ]; then
+            mv MiPay4XiaomiEU-full.zip release-assets/
+          fi
+          ls -la release-assets/
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v-OS2.0.216.0-${{ github.run_number }}
           name: MiPay Module OS2.0.216.0 (Build ${{ github.run_number }})
-          files: MiPay4XiaomiEU.zip
-          generate_release_notes: true 
+          files: release-assets/*
+          body: |
+            ## 版本说明
+
+            - **MiPay4XiaomiEU-lite.zip** — 仅含 NFC 门卡/交通卡组件(MINextpay / MITSMClient / UPTsmService)
+            - **MiPay4XiaomiEU-full.zip** — 在 lite 基础上额外包含国行应用商店 MIUISuperMarket(用于更新银联组件和安装"钱包"应用)
+
+            若不需要应用商店,直接删除 `module/system/app/MIUISuperMarket` 即可,或直接使用 lite 版本。
+
+            ## 安装要求
+            - KernelSU + [magic_mount_rs](https://github.com/KernelSU-Modules-Repo/magic_mount_rs) 挂载元模块
+            - 在 KSU 中关闭默认卸载模块,或在 `android.uid.nfc` 的 App Profile 中关闭"卸载模块"
+
+            ## 测试环境
+            - 设备:Redmi Turbo 4 Pro (onyx)
+            - 系统版本:OS2.0.216.0.VOLCNXM (xiaomi.eu)
+          generate_release_notes: true
