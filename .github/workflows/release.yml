@@ -52,18 +52,28 @@ jobs:
 
       - name: Assemble module
         run: |
-          # 仅提取小米支付及相关 NFC 服务组件
-          cp -a ./product/app/MINextpay ./module/system/priv-app/MINextpay
-          cp -a ./product/app/MITSMClient ./module/system/priv-app/MITSMClient
-          cp -a ./product/app/UPTsmService ./module/system/priv-app/UPTsmService
-          
-          # 已移除: cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
-          
-          rm -f ./module/system/priv-app/.gitkeep
+          # 打印 product/app 目录结构,便于排查路径差异
+          echo "===== product/app 目录结构 ====="
+          ls -la ./product/app/ | grep -E 'MINextpay|MITSMClient|UPTsmService|MipayWallet|PaymentService' || true
+          echo "================================"
+
+          # 仅提取门卡/交通卡链路所需的 NFC 服务组件
+          # MINextpay:      小米支付组件(智能卡网页/服务桥)
+          # MITSMClient:    小米智能卡(NFC 卡片底层管理与通信)
+          # UPTsmService:   银联 TSM 服务(公交卡付款/充值必需)
+          # 注: MipayWallet(小米钱包)由用户在设备端自行安装,本模块不重复提供
+          # 注: PaymentService(小米支付服务)用于 Mi Pay 银行卡闪付,本模块不需要
+          cp -a ./product/app/MINextpay ./module/system/product/app/MINextpay
+          cp -a ./product/app/MITSMClient ./module/system/product/app/MITSMClient
+          cp -a ./product/app/UPTsmService ./module/system/product/app/UPTsmService
+
+          rm -f ./module/system/product/app/.gitkeep
 
       - name: Package module
         run: |
           cd module/
+          # 确保 service.sh / uninstall.sh 有可执行权限
+          chmod +x service.sh uninstall.sh customize.sh 2>/dev/null || true
           zip -r ../MiPay4XiaomiEU.zip *
 
       - name: Release

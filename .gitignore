@@ -4,6 +4,6 @@
 *.bin
 *.img
 
-product
+/product
 payload_properties.txt
-payload-dumper-go
+/payload-dumper-go
