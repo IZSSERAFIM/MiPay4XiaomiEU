@@ -59,7 +59,7 @@ jobs:
           
           # 已移除: cp -a ./product/app/MIUISuperMarket ./module/system/app/MIUISuperMarket
           
-          rm -f ./module/system/app/.gitkeep
+          rm -f ./module/system/priv-app/.gitkeep
 
       - name: Package module
         run: |
